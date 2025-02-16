@@ -15,7 +15,7 @@ This is a simple AI chatbot that lets users chat with movie characters. It retri
 ## **🛠️ Tech Stack**
 - **Backend:** FastAPI, FAISS, LangChain (OpenAI API), Python  
 - **Frontend:** React.js, Tailwind CSS, Radix UI  
-- **Database:** SQLite (for storing movie dialogues)  
+- **Database:** Vector Embeddings (for storing movie dialogues)  
 
 ---
 
