@@ -82,7 +82,3 @@ The UI will be available at: **`http://localhost:5173`**
 
 ## **📜 License**
 This project is open-source. Feel free to use, modify, and contribute! 🚀  
-
----
-🔗 **Created by [Your Name]**  
-💻 **Repo:** [GitHub Link]  
