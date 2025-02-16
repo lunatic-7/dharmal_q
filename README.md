@@ -6,14 +6,14 @@ This is a simple AI chatbot that lets users chat with movie characters. It retri
 
 ## **📌 Features**
 ✅ Chat with movie characters like **Iron Man, Harry Potter, Yoda, Babu Rao, etc.**  
-✅ Uses a **SQLite database** to store real movie dialogues.  
+✅ Uses a **Vector Embeddings** to store real movie dialogues.  
 ✅ **AI-powered responses** if no matching dialogue is found.  
 ✅ Built with **FastAPI** (Backend) and **React.js + Tailwind CSS + Radix UI** (Frontend).  
 
 ---
 
 ## **🛠️ Tech Stack**
-- **Backend:** FastAPI, SQLite, LangChain (OpenAI API), Python  
+- **Backend:** FastAPI, FAISS, LangChain (OpenAI API), Python  
 - **Frontend:** React.js, Tailwind CSS, Radix UI  
 - **Database:** SQLite (for storing movie dialogues)  
 
@@ -38,9 +38,9 @@ Create a `.env` file in the `dharmal_q_backend` directory:
 OPENAI_API_KEY=your_openai_api_key
 ```
 
-#### **Load Movie Dialogues into SQLite**
+#### **Load Harry Potter Dialogues into Vector embeddings**
 ```sh
-python load_dialogues.py
+python rag_indexer.py  # Only Harry Potter Script is used for now, rest of the charater responses are generated from propmt only
 ```
 
 #### **Run the Backend**

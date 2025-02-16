@@ -1,4 +1,8 @@
 import os
+import pickle
+import faiss
+from openai import OpenAI
+import numpy as np
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -10,6 +14,7 @@ from uuid import uuid4
 
 load_dotenv()
 app = FastAPI()
+client = OpenAI()
 
 # Enable CORS
 app.add_middleware(
@@ -22,12 +27,30 @@ app.add_middleware(
 
 # OpenAI API Key
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    raise ValueError("Missing OpenAI API Key")
 
 # Initialize LLM
 llm = ChatOpenAI(model_name="gpt-4o-mini", openai_api_key=OPENAI_API_KEY)
 
 # Store chat history (In-memory dictionary)
 chat_sessions: Dict[str, List[Dict[str, str]]] = {}
+
+# Load FAISS index and stored chunks
+INDEX_FILE = "faiss_index.pkl"
+CHUNKS_FILE = "chunks.pkl"
+
+try:
+    with open(INDEX_FILE, "rb") as f:
+        faiss_index = pickle.load(f)
+
+    with open(CHUNKS_FILE, "rb") as f:
+        script_chunks = pickle.load(f)
+
+    print(f"✅ FAISS index loaded with {len(script_chunks)} chunks.")
+
+except FileNotFoundError:
+    raise ValueError("FAISS index or chunks file not found. Run indexing first!")
 
 # Define request model
 class ChatRequest(BaseModel):
@@ -74,22 +97,35 @@ CHARACTER_PROMPTS = {
       - Baburao: "Arre dekh raha hoon re baba, paisa double kaise hoga!" """,
 }
 
-# Create a new session
+def get_embedding(text: str) -> List[float]:
+    """Gets the embedding for a given text using OpenAI API."""
+    response = client.embeddings.create(
+        model="text-embedding-ada-002",
+        input=text,
+    )
+    return response.data[0].embedding
+
+def search_faiss(query: str, k=1) -> str:
+    """Finds the most relevant script chunk using FAISS search."""
+    query_embedding = np.array(get_embedding(query), dtype="float32").reshape(1, -1)
+    _, indices = faiss_index.search(query_embedding, k)
+    
+    # Retrieve the most relevant chunk
+    return script_chunks[indices[0][0]]
+
 @app.get("/new_session")
 async def new_session():
-    session_id = str(uuid4())  # Generate a unique session ID
-    chat_sessions[session_id] = []  # Initialize empty history
+    """Create a new chat session."""
+    session_id = str(uuid4())
+    chat_sessions[session_id] = []
     return {"session_id": session_id}
 
-# Chat with history
 @app.post("/chat")
 async def chat(request: ChatRequest):
+    """Handles chat requests with contextual FAISS search."""
     session_id = request.session_id
     character = request.character
     user_message = request.user_message
-
-    if not OPENAI_API_KEY:
-        raise HTTPException(status_code=500, detail="Missing OpenAI API Key")
 
     if session_id not in chat_sessions:
         raise HTTPException(status_code=400, detail="Invalid session ID")
@@ -97,14 +133,18 @@ async def chat(request: ChatRequest):
     # Retrieve character's personality
     character_prompt = CHARACTER_PROMPTS.get(character, f"You are {character}, reply in their style.")
 
+    # Retrieve relevant script chunk
+    relevant_script = search_faiss(user_message)
+
     # Store user message in history
     chat_sessions[session_id].append({"sender": "User", "text": user_message})
 
     # Format chat history for LLM context
     history = "\n".join([f"{msg['sender']}: {msg['text']}" for msg in chat_sessions[session_id]])
-    
+
     messages = [
         SystemMessage(content=character_prompt),
+        SystemMessage(content=f"Relevant script excerpt:\n{relevant_script}"),
         SystemMessage(content=f"Previous conversation:\n{history}"),
         HumanMessage(content=user_message)
     ]
